@@ -9,7 +9,16 @@ from typing import Any, Dict
 
 def set_seed(seed: int) -> None:
     """Seed python / numpy / torch (+cuda) for reproducible toy runs."""
-    raise NotImplementedError("set_seed is a stub (M1).")
+    import random
+
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def save_checkpoint(path: str, model, optimizer, step: int, extra: Dict[str, Any] | None = None) -> None:

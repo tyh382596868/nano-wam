@@ -8,9 +8,10 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: scaffold (M0).** The architecture is specified in
-> [`DESIGN.md`](DESIGN.md); the modules here are documented stubs with the
-> shape contracts in place. See the roadmap in `DESIGN.md §9`.
+> **Status: M1.** The architecture is specified in [`DESIGN.md`](DESIGN.md). The
+> tokenizer (conv AE) and the MoT Diffusion Transformer are implemented and pass
+> their shape contracts; flow loss / training / eval (`flow.py`, `data.py`, the
+> scripts) are still documented stubs. See the roadmap in `DESIGN.md §9`.
 
 ## The idea in one diagram
 

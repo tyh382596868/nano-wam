@@ -64,9 +64,14 @@ pretraining. nano-wam is from-scratch PyTorch on a toy dataset.
                               flow time τ, mode mask ──► AdaLN-zero conditioning
 ```
 
-- **Frame tokenizer** (`nanowam/tokenizer.py`): a tiny conv encoder/decoder that
-  maps a low-res RGB frame to a small latent grid and back. This is nano-wam's
-  stand-in for the Wan VAE. Default: 64×64 → 8×8×C latent.
+- **Frame tokenizer** (`nanowam/tokenizer.py`): a tiny **deterministic conv
+  autoencoder** (no KL/VAE sampling — that's overkill at nano scale) mapping a
+  low-res RGB frame to a small latent grid and back. nano-wam's stand-in for the
+  Wan VAE. Default: `64×64×3` → `8×8×C` latent. The **`patch_size` is exactly the
+  tokenizer's downsample factor** (8), so each latent grid cell *is* one token
+  (`P = (64/8)² = 64` tokens/frame, each `C`-dim) — there is no second patchify
+  step. The tokenizer is trained **jointly** with the WAM (M2); a recon-only
+  warmup is optional.
 - **MoT DiT** (`nanowam/model.py`): the core. Concatenates context + video +
   action tokens into one sequence, runs `N` MoT blocks (shared attention,
   per-stream FFN + AdaLN), and reads out per-stream velocity predictions.
@@ -93,7 +98,8 @@ Symbols: `B` batch, `Hv` video horizon (frames predicted), `Ha` action horizon,
 | velocity out | matches `z_v`, `z_a` | rectified-flow target `x1 - x0` |
 
 Defaults (toy / single-GPU): `d=256`, `N=8` blocks, `heads=8`, `Hv=4`, `Ha=8`,
-`Da=2` (pushT) , `C=4`, frame `64×64`, patch `8` → `P=64`. ~10–20M params.
+`Da=2` (pushT) , `C=4`, frame `64×64`, patch `8` → `P=64`. **≈24.5M params** for
+the WAM (the per-stream FFN ×3 dominates) plus **≈0.36M** for the tokenizer.
 
 ---
 
@@ -109,12 +115,23 @@ for each block:
     x = h
 ```
 
-- **MoT = modality-routed weights.** A boolean stream-id per token selects which
-  `{FFN, AdaLN, in/out proj}` set applies. Attention QKV can be shared or routed;
-  nano-wam shares attention and routes FFN+AdaLN by default (smallest variant
-  that still "is" an MoT).
-- **AdaLN-zero** conditioning carries `(flow_time τ, mode embedding, goal embed)`.
-  Initialized to zero so blocks start as identity (stable training).
+- **MoT = modality-routed weights.** A stream-id per token (`0=ctx, 1=video,
+  2=action`) selects which `{LayerNorm, AdaLN modulation, FFN}` set applies. The
+  three streams share one self-attention (default `route_attention: false`); when
+  `route_attention: true`, QKV is routed too (fuller MoT, more params). Streams
+  are contiguous blocks in the sequence, so routing is a per-stream slice +
+  scatter.
+- **Conditioning vector** `c ∈ ℝ^d` (one per batch element) is
+  `c = MLP_time(sinusoid(τ)) + Emb_mode(mode) + goal_embed(goal)`, with the goal
+  term zero when `goal=None`. Each stream owns its **AdaLN-zero** modulation MLP
+  `c → (shift₁,scale₁,gate₁,shift₂,scale₂,gate₂)`, the two gates **zero-init** so
+  every block starts as identity (stable training). Pre-norm DiT layout:
+  `x += gate₁·Attn(mod(LN₁(x),shift₁,scale₁))` then
+  `x += gate₂·FFN(mod(LN₂(x),shift₂,scale₂))`.
+- **Embeddings.** Per-stream input projections (`Linear(C→d)` for ctx/video,
+  `Linear(Da→d)` for action) plus a learned positional table sized to that
+  stream's token count; per-stream output heads (`Linear(d→C)`, `Linear(d→Da)`)
+  read out velocities.
 - **Context tokens are clean** (never noised); they're the conditioning image.
 
 ---
@@ -202,9 +219,10 @@ nano-wam/
 
 ## 9. Roadmap
 
-1. **M0 (this commit)** — design + scaffold + shape contracts.
-2. **M1** — tokenizer + model forward pass green in `test_shapes.py`.
-3. **M2** — flow loss + single-mode (`policy`) overfit on a tiny pushT slice.
+1. **M0** ✅ — design + scaffold + shape contracts.
+2. **M1** ✅ — tokenizer (conv AE) + MoT DiT forward; shape tests green, backward
+   verified through tokenizer→model, zero-init heads give 0 velocity at init.
+3. **M2** (next) — flow loss + single-mode (`policy`) overfit on a tiny pushT slice.
 4. **M3** — multi-mode training; `world` + `joint` sampling renders plausible
    futures.
 5. **M4** — eval harness + the imagination on/off ablation (the FastWAM result,
@@ -214,12 +232,24 @@ nano-wam/
 
 ---
 
-## 10. Open questions
+## 10. Resolved design decisions
 
-- Share attention QKV across streams, or route them too (fuller MoT)?
-- Per-stream flow time `τ` vs. shared (per-stream enables cleaner inverse
-  dynamics / partial-noise modes).
-- Tokenizer: train jointly, pretrain+freeze, or operate on raw downsampled
-  pixels for ultra-nano?
+The scaffold's open questions are now locked for the M1 implementation:
 
-These are deliberately left for M1+ once the scaffold is agreed.
+- **Attention sharing** → **shared QKV** across streams (route FFN + AdaLN only).
+  Smallest variant that still "is" an MoT; `route_attention: true` is kept as an
+  opt-in escape hatch for experiments.
+- **Flow time `τ`** → **shared across streams** (`per_stream_time: false`).
+  Per-stream `τ` (cleaner partial-noise / inverse-dynamics) is deferred; the API
+  already accepts `τ` of shape `(B,)` or `(B, n_streams)` so enabling it later is
+  non-breaking.
+- **Tokenizer** → **tiny deterministic conv AE, trained jointly** (no KL, no
+  freeze). `patch_size` = downsample factor, so latent cells are the tokens. An
+  ultra-nano "pixel passthrough" mode (identity tokenizer on downsampled pixels)
+  may be added behind a flag for debugging.
+
+Still genuinely open, deferred past M1:
+
+- Classifier-free guidance on the goal (the `goal_present` hook in `StreamMask`
+  exists but is unused until we have a real multi-task goal).
+- Whether `inverse` mode needs its own time schedule vs. reusing `policy`.
