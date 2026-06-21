@@ -1,0 +1,9 @@
+# nano-wam — minimal dependencies (single-GPU / CPU friendly)
+torch>=2.1
+numpy>=1.24
+pyyaml>=6.0
+tqdm>=4.65
+imageio>=2.31          # save rollout gifs/frames
+# optional, for the pushT toy task / dataset prep:
+#   gym-pusht
+#   lerobot              # only needed for the M5 LIBERO adapter

@@ -1,0 +1,47 @@
+# nano-wam — default tiny config (pushT, single GPU / CPU)
+# Mirrors the dataclasses in nanowam/config.py.
+
+seed: 1337
+
+data:
+  name: pusht          # toy 2D task; Da=2
+  root: data/pusht     # where prepare_data.py writes windows
+  image_size: 64
+  ctx_frames: 2        # K: history frames used as conditioning
+  video_horizon: 4     # Hv: future frames predicted (world stream)
+  action_horizon: 8    # Ha: actions predicted (policy stream)
+  action_dim: 2        # Da
+
+model:
+  dim: 256             # d: model width
+  depth: 8             # N: MoT blocks
+  heads: 8
+  latent_channels: 4   # C: tokenizer latent channels
+  patch_size: 8        # -> P = (64/8)^2 = 64 tokens / frame
+  route_attention: false  # MoT: share attention QKV, route FFN+AdaLN only
+  goal_embed: onehot   # onehot | none | frozen_text
+
+flow:
+  loss_video_weight: 1.0   # lambda_v
+  loss_action_weight: 1.0  # lambda_a
+  per_stream_time: false   # shared tau across streams
+  sample_steps: 10         # Euler ODE steps at inference
+
+train:
+  # mode-sampling probabilities (must sum to 1). See DESIGN.md §5.
+  mode_probs: { joint: 0.5, policy: 0.25, world: 0.15, inverse: 0.10 }
+  batch_size: 64
+  lr: 3.0e-4
+  weight_decay: 0.01
+  max_steps: 20000
+  warmup_steps: 500
+  grad_clip: 1.0
+  amp: true
+  log_every: 50
+  ckpt_every: 2000
+  out_dir: runs/pusht_tiny
+
+eval:
+  episodes: 20
+  imagine: none        # none | joint  (the FastWAM ablation toggle)
+  replan_every: 4      # receding-horizon: execute n actions, then replan
