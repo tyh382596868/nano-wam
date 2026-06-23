@@ -77,9 +77,9 @@ place; chapters are written one at a time. Track progress in the table below.
 | 1  | Understanding World Action Models | (concepts) | ✅ written |
 | 2  | The Window Contract | `data.py`, `prepare_data.py` | ✅ written |
 | 3  | The Tokenizer | `tokenizer.py` | ✅ written |
-| 4  | Rectified Flow Matching | `flow.py` | planned |
-| 5  | The MoT Diffusion Transformer | `model.py` | planned |
-| 6  | Four Modes from One Network | `modes.py` | planned |
+| 4  | Rectified Flow Matching | `flow.py` | ✅ written |
+| 5  | The MoT Diffusion Transformer | `model.py` | ✅ written |
+| 6  | Four Modes from One Network | `modes.py` | ✅ written |
 | 7  | Training nano-wam | `train.py`, `utils.py` | planned |
 | 8  | Sampling & Visualizing | `sample.py` | planned |
 | 9  | Closed-Loop Control & Ablation | `envs.py`, `eval.py` | planned |
