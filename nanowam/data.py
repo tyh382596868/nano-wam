@@ -116,6 +116,15 @@ class WindowDataset(Dataset):
         self.future = np.concatenate(future)
         self.action = np.concatenate(action)
 
+        # optional action normalization stats (saved by prepare_data --normalize);
+        # actions in the shards are already normalized — these let callers de-norm.
+        self.action_mean = self.action_std = None
+        stats_path = os.path.join(cfg.root, "stats.npz")
+        if os.path.exists(stats_path):
+            st = np.load(stats_path)
+            self.action_mean = st["action_mean"].astype(np.float32)
+            self.action_std = st["action_std"].astype(np.float32)
+
     def __len__(self) -> int:
         return len(self.ctx)
 

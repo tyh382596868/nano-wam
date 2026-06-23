@@ -10,11 +10,13 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: M4.** End-to-end and closed-loop: tokenizer, MoT DiT, rectified-flow
-> loss/sampler, all four modes, the procedural data pipeline + interactive
-> `ReacherEnv`, the training loop, open-loop rollout viz, and the
-> `--closed-loop` **imagination on/off ablation** (FastWAM's question at nano
-> scale). Next: real-data adapters (M5). See the roadmap in `DESIGN.md §9`.
+> **Status: M5 (adapter).** Full nano stack: tokenizer, MoT DiT, rectified-flow
+> loss/sampler, all four modes, procedural data + interactive `ReacherEnv`,
+> training loop, open-loop rollout viz, the `--closed-loop` **imagination
+> ablation** (FastWAM's question at nano scale), and a **LeRobot real-data
+> adapter** (pushT / LIBERO slices via `sources.py`). Open stretch: KV-cache
+> long-horizon rollout + a GPU-scale run for trustworthy numbers. See
+> `DESIGN.md §9`.
 
 ## The idea in one diagram
 
@@ -56,6 +58,17 @@ python scripts/sample.py --config configs/pusht_tiny.yaml --mode world
 
 # 3b. closed-loop imagination ablation: does test-time imagination help?
 python scripts/sample.py --config configs/pusht_tiny.yaml --closed-loop --episodes 50
+```
+
+**Real data (LeRobot).** Any LeRobot-format dataset (pushT, LIBERO slices, …)
+drops in behind the same interface — frames are resized, actions checked against
+`action_dim`, episodes pooled into shards (with optional normalization):
+
+```bash
+pip install lerobot
+python scripts/prepare_data.py --config configs/lerobot_pusht.yaml \
+    --source lerobot --repo-id lerobot/pusht --normalize
+python scripts/train.py --config configs/lerobot_pusht.yaml
 ```
 
 ## Layout

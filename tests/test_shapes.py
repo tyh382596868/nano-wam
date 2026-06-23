@@ -170,6 +170,73 @@ def test_world_generation_decode_pipeline():
     assert (frames >= 0).all() and (frames <= 1).all()
 
 
+def test_to_chw_uint8_resizes():
+    import numpy as np
+    from nanowam.sources import to_chw_uint8
+
+    hwc = (np.random.rand(40, 50, 3) * 255).astype(np.uint8)  # wrong size, HWC uint8
+    out = to_chw_uint8(hwc, 64)
+    assert out.shape == (3, 64, 64) and out.dtype == np.uint8
+
+    chw_float = np.random.rand(3, 70, 70).astype(np.float32)  # CHW float[0,1]
+    out2 = to_chw_uint8(chw_float, 64)
+    assert out2.shape == (3, 64, 64) and out2.max() <= 255
+
+
+def test_lerobot_source_lazy_import():
+    """Constructing LeRobotSource must not import lerobot; iterating errors clearly."""
+    from nanowam.sources import LeRobotSource
+
+    cfg = _tiny_cfg()
+    src = LeRobotSource(cfg.data, "lerobot/pusht")  # no import at construction
+    with pytest.raises(ImportError):
+        next(src.iter_episodes())
+
+
+def test_source_to_shards_roundtrip(tmp_path):
+    import os
+    import numpy as np
+    from nanowam.data import make_windows, WindowDataset
+    from nanowam.sources import EpisodeSource
+
+    cfg = _tiny_cfg()
+    cfg.data.root = str(tmp_path)
+    S = cfg.data.image_size
+
+    class MockSource(EpisodeSource):
+        def iter_episodes(self):
+            rng = np.random.default_rng(0)
+            for _ in range(2):
+                frames = (rng.random((20, 3, S, S)) * 255).astype(np.uint8)
+                actions = rng.standard_normal((20, cfg.data.action_dim)).astype(np.float32)
+                yield frames, actions
+
+    windows = []
+    for f, a in MockSource().iter_episodes():
+        windows += make_windows(f, a, cfg.data.ctx_frames, cfg.data.video_horizon,
+                                cfg.data.action_horizon)
+    assert windows
+
+    acts = np.concatenate([w[2] for w in windows]).reshape(-1, cfg.data.action_dim)
+    mean = acts.mean(0, keepdims=True).astype(np.float32)
+    std = (acts.std(0, keepdims=True) + 1e-6).astype(np.float32)
+    np.savez(os.path.join(str(tmp_path), "stats.npz"), action_mean=mean, action_std=std)
+
+    os.makedirs(os.path.join(str(tmp_path), "train"))
+    ctx = np.stack([w[0] for w in windows])
+    fut = np.stack([w[1] for w in windows])
+    act = ((np.stack([w[2] for w in windows]) - mean) / std).astype(np.float32)
+    np.savez_compressed(os.path.join(str(tmp_path), "train", "shard_000.npz"),
+                        ctx=ctx, future=fut, action=act)
+
+    ds = WindowDataset(cfg.data, "train")
+    item = ds[0]
+    assert item["ctx_frames"].shape == (cfg.data.ctx_frames, 3, S, S)
+    assert item["future_frames"].shape == (cfg.data.video_horizon, 3, S, S)
+    assert item["actions"].shape == (cfg.data.action_horizon, cfg.data.action_dim)
+    assert ds.action_mean is not None and ds.action_mean.shape[-1] == cfg.data.action_dim
+
+
 def test_reacher_env_step():
     import numpy as np
     from nanowam.envs import ReacherEnv

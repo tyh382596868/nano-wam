@@ -186,9 +186,13 @@ and CI run anywhere. `scripts/prepare_data.py` generates episodes, slides
 `(ctx, future, action)` windows, and writes `.npz` shards; `WindowDataset` reads
 them.
 
-**Real targets (adapters, M5):** pushT and a LeRobot/LIBERO slice plug in behind
-the same shard/window interface — same `(ctx_frames, future_frames, actions)`
-contract, just a different generator.
+**Real targets (adapters, M5 ✅):** any LeRobot-format dataset (pushT, LIBERO
+slices, …) plugs in via `nanowam/sources.py:LeRobotSource` — frames resized to
+`image_size`, actions asserted against `action_dim`, episodes pooled into the
+same shard/window contract. `lerobot` is a lazy/optional import; `prepare_data.py
+--source lerobot --repo-id ... --normalize` builds shards + saves per-dim action
+stats (`stats.npz`) for deployment de-normalization. KV-cache autoregressive
+rollout (LingBot-VA path) remains the open stretch item.
 
 ---
 
@@ -200,20 +204,24 @@ nano-wam/
 ├── README.md                 # quickstart + project pitch
 ├── requirements.txt
 ├── configs/
-│   └── pusht_tiny.yaml       # the default tiny run
+│   ├── pusht_tiny.yaml       # default tiny run (procedural reacher)
+│   └── lerobot_pusht.yaml    # real-data template (LeRobot pushT)
 ├── nanowam/
 │   ├── __init__.py
 │   ├── config.py             # dataclasses for model/train/data
-│   ├── tokenizer.py          # tiny conv frame VAE (stub)
-│   ├── model.py              # MoT DiT (stub)
-│   ├── flow.py               # rectified flow: noise/loss/sample (stub)
-│   ├── modes.py              # mode masks (stub)
-│   ├── data.py               # toy windowed dataset (stub)
-│   └── utils.py              # seed, ckpt, logging helpers (stub)
+│   ├── tokenizer.py          # tiny conv frame autoencoder
+│   ├── model.py              # MoT DiT (the core)
+│   ├── flow.py               # rectified flow: noise/loss/sample
+│   ├── modes.py              # mode masks + sample_mode
+│   ├── data.py               # procedural generator + WindowDataset
+│   ├── sources.py            # EpisodeSource: Reacher + LeRobot adapters (M5)
+│   ├── envs.py               # ReacherEnv for closed-loop eval (M4)
+│   ├── eval.py               # closed-loop rollout + imagination ablation (M4)
+│   └── utils.py              # seed, ckpt, logging helpers
 ├── scripts/
-│   ├── prepare_data.py       # episodes → windows (stub)
-│   ├── train.py              # train loop (stub)
-│   └── sample.py             # inference / eval, imagination toggle (stub)
+│   ├── prepare_data.py       # any EpisodeSource → windows → shards
+│   ├── train.py              # train loop (tokenizer recon + flow)
+│   └── sample.py             # open-loop viz + --closed-loop ablation
 └── tests/
     └── test_shapes.py        # forward-pass shape contracts (stub)
 ```
@@ -237,8 +245,11 @@ nano-wam/
    `--closed-loop` imagination on/off ablation (`imagine=none` POLICY vs
    `imagine=joint` JOINT) reports success rate + mean steps. Harness tested;
    real numbers need GPU-scale training (the nano-CPU checkpoint is undertrained).
-6. **M5 (next, stretch)** — LeRobot/LIBERO adapter; KV-cache autoregressive
-   rollout (the LingBot-VA path).
+6. **M5** ✅ (adapter) — `EpisodeSource` abstraction + `LeRobotSource` (lazy dep)
+   ingest any LeRobot dataset into the shard/window format; optional action
+   normalization with saved stats; mock-source round-trip tested.
+   **Open stretch:** KV-cache autoregressive long-horizon rollout (LingBot-VA),
+   and a real GPU-scale run on pushT/LIBERO to get trustworthy numbers.
 
 ---
 
