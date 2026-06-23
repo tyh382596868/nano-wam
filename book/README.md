@@ -80,9 +80,9 @@ place; chapters are written one at a time. Track progress in the table below.
 | 4  | Rectified Flow Matching | `flow.py` | ✅ written |
 | 5  | The MoT Diffusion Transformer | `model.py` | ✅ written |
 | 6  | Four Modes from One Network | `modes.py` | ✅ written |
-| 7  | Training nano-wam | `train.py`, `utils.py` | planned |
-| 8  | Sampling & Visualizing | `sample.py` | planned |
-| 9  | Closed-Loop Control & Ablation | `envs.py`, `eval.py` | planned |
+| 7  | Training nano-wam | `train.py`, `utils.py` | ✅ written |
+| 8  | Sampling & Visualizing | `sample.py` | ✅ written |
+| 9  | Closed-Loop Control & Ablation | `envs.py`, `eval.py` | ✅ written |
 | 10 | Real Data: LeRobot Adapter | `sources.py` | planned |
 | 11 | Causal Attention & KV Caching | `model.py`, `rollout.py` | planned |
 | 12 | Scaling & the Frontier | `run_gpu.sh` | planned |
