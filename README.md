@@ -42,7 +42,23 @@ test FastWAM's question: *does test-time imagination actually help?*
 What it deliberately omits: 5B–14B params, Wan/Qwen pretrained weights,
 multi-GPU infra, real robot stacks. See `DESIGN.md §1`.
 
-## Quickstart (target API — not yet runnable)
+## Features (all implemented + tested)
+
+| Capability | Where | From |
+|---|---|---|
+| MoT Diffusion Transformer (shared attn, per-stream FFN/AdaLN) | `model.py` | LingBot-VA, Motus |
+| Rectified flow matching, joint video+action | `flow.py` | all four |
+| 4 modes from one checkpoint (policy / world / inverse / joint) | `modes.py` | Motus / UniDiffuser |
+| Imagination on/off ablation (`--closed-loop`) | `eval.py` | FastWAM |
+| LeRobot real-data adapter (pushT / LIBERO) | `sources.py` | — |
+| Causal KV-cache long-horizon dreaming (`--dream N`) | `rollout.py` | LingBot-VA |
+
+> **Verified vs. not:** every *mechanism* is CPU-tested (20 tests, CI green).
+> *Quality* numbers are not yet trustworthy — all runs so far are tiny/undertrained
+> on CPU. Trustworthy quality + ablation numbers need a GPU run (below). See
+> `PROJECT.md` for the honest breakdown.
+
+## Quickstart
 
 ```bash
 pip install -r requirements.txt
@@ -80,14 +96,35 @@ python scripts/train.py        --config configs/causal_tiny.yaml
 python scripts/sample.py       --config configs/causal_tiny.yaml --dream 8   # 8 blocks → long gif
 ```
 
+**GPU (one-click).** Scaled config + a single script that does deps → data →
+train → visualize → ablation (and a long-horizon dream if the config is causal):
+
+```bash
+./scripts/run_gpu.sh                          # config: configs/reacher_gpu.yaml
+EPISODES=4000 ./scripts/run_gpu.sh            # more data
+./scripts/run_gpu.sh configs/causal_tiny.yaml # any config
+```
+
+## Documentation
+
+- [`PROJECT.md`](PROJECT.md) — why this exists, how it's built, the milestone
+  story, and what is / isn't verified. **Start here to understand the project.**
+- [`DESIGN.md`](DESIGN.md) — the precise architecture spec (shapes, modes, block
+  definition, roadmap).
+- [`CLAUDE.md`](CLAUDE.md) — quick orientation + conventions for coding agents.
+
 ## Layout
 
 ```
-nanowam/    core library — config, tokenizer, model (MoT DiT), flow, modes, data
-configs/    tiny run configs
-scripts/    prepare_data / train / sample
-tests/      shape-contract tests
-DESIGN.md   the spec — read this first
+nanowam/    core library
+  model.py      MoT DiT (+ causal mask, KV cache)      flow.py    rectified flow
+  tokenizer.py  conv AE frame tokenizer                modes.py   modes + masks
+  data.py       windows + procedural reacher           sources.py EpisodeSource adapters
+  envs.py       ReacherEnv                             eval.py    closed-loop + ablation
+  rollout.py    autoregressive long-horizon dream      config.py  config dataclasses
+scripts/    prepare_data / train / sample / run_gpu.sh
+configs/    pusht_tiny (CPU) · reacher_gpu · lerobot_pusht · causal_tiny
+tests/      executable shape + behavior contracts
 ```
 
 ## References
