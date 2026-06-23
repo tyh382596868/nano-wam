@@ -233,10 +233,12 @@ nano-wam/
    denoises future-frame latents and decodes them to pixels, dumping a GT-vs-pred
    rollout gif + grid and reporting frame/action MSE against a copy-last-frame
    baseline.
-5. **M4** (next) — closed-loop eval harness + the imagination on/off ablation
-   (the FastWAM result, reproduced at nano scale).
-6. **M5 (stretch)** — LeRobot/LIBERO adapter; KV-cache autoregressive rollout
-   (the LingBot-VA path).
+5. **M4** ✅ — `ReacherEnv` + closed-loop receding-horizon rollout; the
+   `--closed-loop` imagination on/off ablation (`imagine=none` POLICY vs
+   `imagine=joint` JOINT) reports success rate + mean steps. Harness tested;
+   real numbers need GPU-scale training (the nano-CPU checkpoint is undertrained).
+6. **M5 (next, stretch)** — LeRobot/LIBERO adapter; KV-cache autoregressive
+   rollout (the LingBot-VA path).
 
 ---
 

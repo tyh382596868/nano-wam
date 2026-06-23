@@ -170,6 +170,42 @@ def test_world_generation_decode_pipeline():
     assert (frames >= 0).all() and (frames <= 1).all()
 
 
+def test_reacher_env_step():
+    import numpy as np
+    from nanowam.envs import ReacherEnv
+
+    cfg = _tiny_cfg()
+    env = ReacherEnv(cfg.data, seed=0)
+    frame = env.reset()
+    assert frame.shape == (3, cfg.data.image_size, cfg.data.image_size)
+    assert frame.min() >= 0 and frame.max() <= 1
+
+    # an action pointing at the goal should reduce the distance
+    direction = (env.goal - env.agent)
+    direction = direction / (np.linalg.norm(direction) + 1e-6)
+    _, _, d0 = env.step(direction * 0.0)   # no-op to read current dist
+    _, done, d1 = env.step(direction)
+    assert d1 < d0 and isinstance(done, bool)
+
+
+def test_closed_loop_ablation_runs():
+    """The imagination ablation harness runs end-to-end and returns valid stats."""
+    from nanowam.eval import run_ablation
+    from nanowam.model import NanoWAM
+    from nanowam.tokenizer import FrameTokenizer
+
+    cfg = _tiny_cfg()
+    cfg.flow.sample_steps = 3
+    cfg.eval.replan_every = 2
+    tok = FrameTokenizer(cfg.model, cfg.data)
+    model = NanoWAM(cfg.model, cfg.data)
+
+    res = run_ablation(model, tok, cfg, device="cpu", episodes=2, max_steps=6)
+    assert set(res) == {"none", "joint"}
+    for r in res.values():
+        assert 0.0 <= r["success_rate"] <= 1.0 and r["n"] == 2
+
+
 def test_policy_overfit_decreases():
     """A tiny WAM should overfit action flow on a small fixed batch."""
     import numpy as np

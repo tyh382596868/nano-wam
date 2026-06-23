@@ -10,11 +10,11 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: M3.** End-to-end: tokenizer, MoT DiT, rectified-flow loss/sampler,
-> all four modes, the procedural data pipeline, the training loop, and
-> `scripts/sample.py` (decode predicted future latents → pixels, dump a
-> GT-vs-pred rollout gif + grid). Next is the closed-loop eval + imagination
-> ablation (M4). See the roadmap in `DESIGN.md §9`.
+> **Status: M4.** End-to-end and closed-loop: tokenizer, MoT DiT, rectified-flow
+> loss/sampler, all four modes, the procedural data pipeline + interactive
+> `ReacherEnv`, the training loop, open-loop rollout viz, and the
+> `--closed-loop` **imagination on/off ablation** (FastWAM's question at nano
+> scale). Next: real-data adapters (M5). See the roadmap in `DESIGN.md §9`.
 
 ## The idea in one diagram
 
@@ -51,9 +51,11 @@ python scripts/prepare_data.py --config configs/pusht_tiny.yaml --episodes 200
 # 2. train the tiny WAM  (tokenizer recon + flow on detached latents)
 python scripts/train.py --config configs/pusht_tiny.yaml
 
-# 3. evaluate; toggle test-time imagination on/off   (M3/M4 — wip)
-python scripts/sample.py --config configs/pusht_tiny.yaml --imagine none
-python scripts/sample.py --config configs/pusht_tiny.yaml --imagine joint
+# 3a. visualize predicted futures (open-loop): GT-vs-pred rollout gif + grid
+python scripts/sample.py --config configs/pusht_tiny.yaml --mode world
+
+# 3b. closed-loop imagination ablation: does test-time imagination help?
+python scripts/sample.py --config configs/pusht_tiny.yaml --closed-loop --episodes 50
 ```
 
 ## Layout

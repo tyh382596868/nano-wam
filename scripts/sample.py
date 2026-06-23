@@ -91,6 +91,9 @@ def main() -> None:
     parser.add_argument("--imagine", choices=["none", "joint"], default=None,
                         help="FastWAM toggle; overrides --mode (none->policy, joint->joint)")
     parser.add_argument("--n", type=int, default=4, help="number of samples to visualize")
+    parser.add_argument("--closed-loop", action="store_true",
+                        help="run the M4 closed-loop imagination ablation instead of open-loop viz")
+    parser.add_argument("--episodes", type=int, default=None, help="episodes for --closed-loop")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
@@ -107,6 +110,16 @@ def main() -> None:
         print(f"[sample] loaded {ckpt} (step {step})")
     else:
         print(f"[sample] WARNING: no checkpoint at {ckpt}; using random weights")
+
+    if args.closed_loop:
+        from nanowam.eval import run_ablation
+        res = run_ablation(model, tokenizer, cfg, device, episodes=args.episodes)
+        print(f"[eval] closed-loop imagination ablation ({res['none']['n']} episodes)")
+        print(f"{'setting':<14}{'mode':<10}{'success':>10}{'mean_steps':>12}")
+        for setting, mode_name in (("none", "policy"), ("joint", "joint")):
+            r = res[setting]
+            print(f"imagine={setting:<6}{mode_name:<10}{r['success_rate']*100:>9.1f}%{r['mean_steps']:>12.1f}")
+        return
 
     ds = WindowDataset(cfg.data, "val")
     idxs = list(range(min(args.n, len(ds))))
