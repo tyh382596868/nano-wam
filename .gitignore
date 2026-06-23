@@ -11,3 +11,5 @@ runs/
 *.gif
 *.mp4
 .DS_Store
+# regenerable book demo outputs
+book/**/*_strip.png

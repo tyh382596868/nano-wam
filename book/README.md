@@ -76,7 +76,7 @@ place; chapters are written one at a time. Track progress in the table below.
 |----|-------|--------------------|--------|
 | 1  | Understanding World Action Models | (concepts) | ✅ written |
 | 2  | The Window Contract | `data.py`, `prepare_data.py` | ✅ written |
-| 3  | The Tokenizer | `tokenizer.py` | planned |
+| 3  | The Tokenizer | `tokenizer.py` | ✅ written |
 | 4  | Rectified Flow Matching | `flow.py` | planned |
 | 5  | The MoT Diffusion Transformer | `model.py` | planned |
 | 6  | Four Modes from One Network | `modes.py` | planned |
@@ -92,3 +92,26 @@ place; chapters are written one at a time. Track progress in the table below.
 The finished code for every chapter already exists at the repo root (`nanowam/`),
 so the book is reverse-engineering a working system into a teachable path. See
 the repo's `PROJECT.md` and `DESIGN.md` for the spec the book narrates.
+
+## Conventions (and how they relate to the reference book)
+
+This book is modeled on **Sebastian Raschka's *Build a Large Language Model (From
+Scratch)*** — https://github.com/rasbt/LLMs-from-scratch — and mirrors its
+pedagogy: each chapter opens with a *"This chapter covers"* box, develops ideas
+with figures and small code listings, and closes with a *Summary* and
+*Exercises*. We adopt its conventions, with two deliberate adaptations:
+
+| Reference repo (`rasbt/LLMs-from-scratch`) | This book | Why |
+|---|---|---|
+| `ch01`, `ch02`, … folders | `chNN-<slug>/` (slug for readability) | same idea, clearer names |
+| `01_main-chapter-code/` with runnable code | `01_main-chapter-code/` runnable demo per code chapter | same convention |
+| `ch02.ipynb` Jupyter notebooks | `README.md` prose + listings | git-reviewable; the *finished* code lives in `nanowam/` |
+| `exercise-solutions.ipynb` | exercises at each chapter end; solutions appendix (planned) | same |
+| `appendix-A … E` | `appendix-a-*`, `appendix-b-*` | same idea |
+| `setup/` | repo `CLAUDE.md` + Appendix A | same idea |
+
+The crucial difference from the reference: there, the chapters *are* the code.
+Here, the finished, tested code already lives in `nanowam/` at the repo root, and
+the book narrates its construction. Each code chapter's `01_main-chapter-code/`
+holds a small **runnable script** that reproduces that chapter's hands-on result
+using the library — the nano-wam analog of the reference's per-chapter notebooks.
