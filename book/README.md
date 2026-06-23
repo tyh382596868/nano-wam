@@ -69,8 +69,9 @@ understand *why* each piece is there.
 
 ## Status
 
-This is the planning skeleton: the structure and per-chapter outlines are in
-place; chapters are written one at a time. Track progress in the table below.
+**Complete** — all 12 chapters and both appendices are written, each with a
+runnable `01_main-chapter-code/` demo (for the code chapters) that was executed
+end to end before commit. Track the chapter-to-code mapping in the table below.
 
 | Ch | Title | Builds (repo file) | Status |
 |----|-------|--------------------|--------|
@@ -83,11 +84,11 @@ place; chapters are written one at a time. Track progress in the table below.
 | 7  | Training nano-wam | `train.py`, `utils.py` | ✅ written |
 | 8  | Sampling & Visualizing | `sample.py` | ✅ written |
 | 9  | Closed-Loop Control & Ablation | `envs.py`, `eval.py` | ✅ written |
-| 10 | Real Data: LeRobot Adapter | `sources.py` | planned |
-| 11 | Causal Attention & KV Caching | `model.py`, `rollout.py` | planned |
-| 12 | Scaling & the Frontier | `run_gpu.sh` | planned |
-| A  | Setup & PyTorch | — | planned |
-| B  | The Math of Rectified Flow | — | planned |
+| 10 | Real Data: LeRobot Adapter | `sources.py` | ✅ written |
+| 11 | Causal Attention & KV Caching | `model.py`, `rollout.py` | ✅ written |
+| 12 | Scaling & the Frontier | `run_gpu.sh` | ✅ written |
+| A  | Setup & PyTorch | — | ✅ written |
+| B  | The Math of Rectified Flow | — | ✅ written |
 
 The finished code for every chapter already exists at the repo root (`nanowam/`),
 so the book is reverse-engineering a working system into a teachable path. See
