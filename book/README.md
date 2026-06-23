@@ -74,8 +74,8 @@ place; chapters are written one at a time. Track progress in the table below.
 
 | Ch | Title | Builds (repo file) | Status |
 |----|-------|--------------------|--------|
-| 1  | Understanding World Action Models | (concepts) | planned |
-| 2  | The Window Contract | `data.py`, `prepare_data.py` | planned |
+| 1  | Understanding World Action Models | (concepts) | ✅ written |
+| 2  | The Window Contract | `data.py`, `prepare_data.py` | ✅ written |
 | 3  | The Tokenizer | `tokenizer.py` | planned |
 | 4  | Rectified Flow Matching | `flow.py` | planned |
 | 5  | The MoT Diffusion Transformer | `model.py` | planned |
