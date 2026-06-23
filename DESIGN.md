@@ -229,10 +229,12 @@ nano-wam/
    procedural reacher data pipeline, and the train loop (tokenizer recon + flow
    on detached latents). Tests: flow loss differentiable in every mode, sampler
    shapes, and a `policy`-mode overfit that drives loss down on a fixed batch.
-4. **M3** (next) — multi-mode training at scale; `world` + `joint` sampling
-   renders plausible futures (decode latents → frames, dump rollout gifs).
-5. **M4** — eval harness + the imagination on/off ablation (the FastWAM result,
-   reproduced at nano scale).
+4. **M3** ✅ — multi-mode training (all modes sampled per batch); `scripts/sample.py`
+   denoises future-frame latents and decodes them to pixels, dumping a GT-vs-pred
+   rollout gif + grid and reporting frame/action MSE against a copy-last-frame
+   baseline.
+5. **M4** (next) — closed-loop eval harness + the imagination on/off ablation
+   (the FastWAM result, reproduced at nano scale).
 6. **M5 (stretch)** — LeRobot/LIBERO adapter; KV-cache autoregressive rollout
    (the LingBot-VA path).
 

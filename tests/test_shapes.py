@@ -144,6 +144,32 @@ def test_sample_shapes():
     assert out["action"].shape == (B, cfg.data.action_horizon, cfg.data.action_dim)
 
 
+def test_world_generation_decode_pipeline():
+    """world sampling -> latent tokens -> decode back to valid frames."""
+    import torch
+    from nanowam.flow import sample
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+    from nanowam.tokenizer import FrameTokenizer, from_tokens
+
+    cfg = _tiny_cfg()
+    tok = FrameTokenizer(cfg.model, cfg.data)
+    model = NanoWAM(cfg.model, cfg.data)
+
+    B, C = 2, cfg.model.latent_channels
+    h = cfg.data.image_size // cfg.model.patch_size
+    cond = {
+        "ctx": torch.randn(B, model.n_ctx, C),
+        "action": torch.randn(B, cfg.data.action_horizon, cfg.data.action_dim),
+    }
+    out = sample(model, cond, Mode.WORLD, cfg.flow, steps=3)
+    assert "video" in out and "action" not in out  # world predicts frames, conditions on action
+
+    frames = tok.decode(from_tokens(out["video"], cfg.data.video_horizon, h, h))
+    assert frames.shape == (B, cfg.data.video_horizon, 3, cfg.data.image_size, cfg.data.image_size)
+    assert (frames >= 0).all() and (frames <= 1).all()
+
+
 def test_policy_overfit_decreases():
     """A tiny WAM should overfit action flow on a small fixed batch."""
     import numpy as np

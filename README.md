@@ -8,11 +8,11 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: M2.** Tokenizer, MoT DiT, rectified-flow loss/sampler, all four
-> modes, the procedural data pipeline, and the training loop are implemented and
-> tested (incl. a policy-mode overfit). Still to come: scaled multi-mode training
-> and the eval/imagination-ablation harness (`scripts/sample.py`). See the
-> roadmap in `DESIGN.md §9`.
+> **Status: M3.** End-to-end: tokenizer, MoT DiT, rectified-flow loss/sampler,
+> all four modes, the procedural data pipeline, the training loop, and
+> `scripts/sample.py` (decode predicted future latents → pixels, dump a
+> GT-vs-pred rollout gif + grid). Next is the closed-loop eval + imagination
+> ablation (M4). See the roadmap in `DESIGN.md §9`.
 
 ## The idea in one diagram
 
