@@ -28,6 +28,7 @@ class ModelConfig:
     latent_channels: int = 4     # C
     patch_size: int = 8
     route_attention: bool = False  # MoT: route FFN+AdaLN only by default
+    causal: bool = False           # block-causal attention (needs Ha == Hv); enables KV-cache AR
     goal_embed: str = "onehot"   # onehot | none | frozen_text
 
 

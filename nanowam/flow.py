@@ -113,6 +113,7 @@ def sample(
     mode: Mode,
     cfg: FlowConfig,
     steps: Optional[int] = None,
+    use_cache: bool = False,
 ):
     """Euler ODE sampler. Denoises the streams the mode flags, tau 0 -> 1.
 
@@ -120,6 +121,10 @@ def sample(
     streams ('action' for WORLD, 'video' for INVERSE). Shapes for the noised
     streams are taken from the model. Returns {'video': ..., 'action': ...} for
     whichever streams were denoised.
+
+    `use_cache=True` (causal model only) computes the clean context's per-layer
+    K/V once via `encode_prefix` and reuses it across every Euler step — the
+    KV-cache fast path. Numerically equivalent to the uncached forward.
     """
     mask = MODE_TABLE[mode]
     steps = steps or cfg.sample_steps
@@ -127,8 +132,9 @@ def sample(
     B = cond["ctx"].shape[0]
     C = model.model_cfg.latent_channels
     Da = model.data_cfg.action_dim
+    goal = cond.get("goal")
+    mode_id = torch.full((B,), int(mode), device=device, dtype=torch.long)
 
-    # initialize streams: noised streams start from N(0,I) at tau=0; clean streams fixed
     if mask.noise_video:
         x_v = torch.randn(B, model.n_video, C, device=device)
     else:
@@ -138,11 +144,16 @@ def sample(
     else:
         x_a = cond["action"]
 
-    mode_id = torch.full((B,), int(mode), device=device, dtype=torch.long)
+    cached = use_cache and getattr(model, "causal", False)
+    prefix = model.encode_prefix(cond["ctx"], mode_id, goal) if cached else None
+
     dt = 1.0 / steps
     for i in range(steps):
         tau = torch.full((B,), i * dt, device=device)
-        v_video, v_action = model(cond["ctx"], x_v, x_a, tau, mode_id, cond.get("goal"))
+        if cached:
+            v_video, v_action = model.forward_suffix(x_v, x_a, tau, mode_id, prefix, goal)
+        else:
+            v_video, v_action = model(cond["ctx"], x_v, x_a, tau, mode_id, goal)
         if mask.noise_video:
             x_v = x_v + dt * v_video
         if mask.noise_action:

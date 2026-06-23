@@ -174,6 +174,15 @@ modes are supported by the single checkpoint.
   - `joint`: denoise video + action together, return both.
   The eval harness reports success rate for both so you can measure the cost/
   benefit of test-time imagination on the toy task.
+- **Long-horizon autoregressive rollout** (causal model, `model.causal: true`,
+  needs `Ha == Hv`): predict one block of `Hv` frames, slide the context window
+  onto the last `K` predicted frames, repeat — dreaming arbitrarily far.
+  `nanowam/rollout.py:dream_rollout`, exposed as `sample.py --dream N`. The
+  **KV cache** (`encode_prefix`/`forward_suffix`) computes the clean context's
+  per-layer K/V once per block and reuses it across all `S` Euler steps; this is
+  exact (cached == uncached) because block-causal masking isolates the context
+  from the noised tokens and the flow time `τ` doesn't modulate the context
+  stream.
 
 ---
 
@@ -205,7 +214,8 @@ nano-wam/
 ├── requirements.txt
 ├── configs/
 │   ├── pusht_tiny.yaml       # default tiny run (procedural reacher)
-│   └── lerobot_pusht.yaml    # real-data template (LeRobot pushT)
+│   ├── lerobot_pusht.yaml    # real-data template (LeRobot pushT)
+│   └── causal_tiny.yaml      # causal model for KV-cache AR rollout (M6)
 ├── nanowam/
 │   ├── __init__.py
 │   ├── config.py             # dataclasses for model/train/data
@@ -217,6 +227,7 @@ nano-wam/
 │   ├── sources.py            # EpisodeSource: Reacher + LeRobot adapters (M5)
 │   ├── envs.py               # ReacherEnv for closed-loop eval (M4)
 │   ├── eval.py               # closed-loop rollout + imagination ablation (M4)
+│   ├── rollout.py            # KV-cache autoregressive long-horizon dream (M6)
 │   └── utils.py              # seed, ckpt, logging helpers
 ├── scripts/
 │   ├── prepare_data.py       # any EpisodeSource → windows → shards
@@ -248,8 +259,15 @@ nano-wam/
 6. **M5** ✅ (adapter) — `EpisodeSource` abstraction + `LeRobotSource` (lazy dep)
    ingest any LeRobot dataset into the shard/window format; optional action
    normalization with saved stats; mock-source round-trip tested.
-   **Open stretch:** KV-cache autoregressive long-horizon rollout (LingBot-VA),
-   and a real GPU-scale run on pushT/LIBERO to get trustworthy numbers.
+7. **M6** ✅ — KV-cache autoregressive long-horizon rollout (LingBot-VA path):
+   `model.causal` block-causal attention over interleaved (action_i, frame_i)
+   steps; `encode_prefix`/`forward_suffix` cache the clean context's per-layer
+   K/V (the flow time no longer modulates the context stream, so it's constant
+   across Euler steps); `rollout.dream_rollout` slides the context window to
+   imagine arbitrarily far (`sample.py --dream N`). Tested: cached == uncached
+   (atol 1e-5), causality (a later frame can't change an earlier output), long
+   rollout shapes.
+   **Open stretch:** a real GPU-scale run on pushT/LIBERO for trustworthy numbers.
 
 ---
 

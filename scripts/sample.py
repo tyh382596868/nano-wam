@@ -93,6 +93,8 @@ def main() -> None:
     parser.add_argument("--n", type=int, default=4, help="number of samples to visualize")
     parser.add_argument("--closed-loop", action="store_true",
                         help="run the M4 closed-loop imagination ablation instead of open-loop viz")
+    parser.add_argument("--dream", type=int, default=0, metavar="N",
+                        help="causal model only: autoregressively dream N blocks into a long gif")
     parser.add_argument("--episodes", type=int, default=None, help="episodes for --closed-loop")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
@@ -110,6 +112,22 @@ def main() -> None:
         print(f"[sample] loaded {ckpt} (step {step})")
     else:
         print(f"[sample] WARNING: no checkpoint at {ckpt}; using random weights")
+
+    if args.dream:
+        from nanowam.rollout import dream_rollout
+        ds = WindowDataset(cfg.data, "val")
+        init = ds[0]["ctx_frames"].to(device)               # (K, 3, H, W)
+        frames = dream_rollout(model, tokenizer, init, args.dream, cfg, Mode.JOINT, device)
+        print(f"[sample] dreamed {args.dream} blocks -> {frames.shape[0]} frames")
+        os.makedirs(cfg.train.out_dir, exist_ok=True)
+        try:
+            import imageio.v2 as imageio
+            gif = os.path.join(cfg.train.out_dir, "dream_long.gif")
+            imageio.mimsave(gif, list(to_uint8(frames)), duration=0.2, loop=0)
+            print(f"[sample] wrote {gif} ({frames.shape[0]} frames)")
+        except Exception as e:
+            print(f"[sample] could not write dream gif ({e})")
+        return
 
     if args.closed_loop:
         from nanowam.eval import run_ablation

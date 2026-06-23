@@ -10,13 +10,13 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: M5 (adapter).** Full nano stack: tokenizer, MoT DiT, rectified-flow
+> **Status: M6.** Full nano stack: tokenizer, MoT DiT, rectified-flow
 > loss/sampler, all four modes, procedural data + interactive `ReacherEnv`,
 > training loop, open-loop rollout viz, the `--closed-loop` **imagination
-> ablation** (FastWAM's question at nano scale), and a **LeRobot real-data
-> adapter** (pushT / LIBERO slices via `sources.py`). Open stretch: KV-cache
-> long-horizon rollout + a GPU-scale run for trustworthy numbers. See
-> `DESIGN.md §9`.
+> ablation** (FastWAM's question at nano scale), a **LeRobot real-data adapter**
+> (pushT / LIBERO slices), and **KV-cache autoregressive long-horizon rollout**
+> (`causal` model + `--dream N`, LingBot-VA path). Open stretch: a GPU-scale run
+> for trustworthy numbers. See `DESIGN.md §9`.
 
 ## The idea in one diagram
 
@@ -69,6 +69,15 @@ pip install lerobot
 python scripts/prepare_data.py --config configs/lerobot_pusht.yaml \
     --source lerobot --repo-id lerobot/pusht --normalize
 python scripts/train.py --config configs/lerobot_pusht.yaml
+```
+
+**Long-horizon dreaming (KV-cache, causal model).** Train the causal variant,
+then autoregressively imagine far past the training horizon:
+
+```bash
+python scripts/prepare_data.py --config configs/causal_tiny.yaml --episodes 200
+python scripts/train.py        --config configs/causal_tiny.yaml
+python scripts/sample.py       --config configs/causal_tiny.yaml --dream 8   # 8 blocks → long gif
 ```
 
 ## Layout

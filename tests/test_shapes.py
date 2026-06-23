@@ -273,6 +273,93 @@ def test_closed_loop_ablation_runs():
         assert 0.0 <= r["success_rate"] <= 1.0 and r["n"] == 2
 
 
+def _causal_cfg():
+    cfg = _tiny_cfg()
+    cfg.model.causal = True
+    cfg.data.action_horizon = cfg.data.video_horizon  # required for interleaving
+    return cfg
+
+
+def test_causal_forward_and_train_step():
+    """A causal model forwards to the right shapes and takes a flow_loss step."""
+    import torch
+    from nanowam.flow import flow_loss
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+
+    cfg = _causal_cfg()
+    model = NanoWAM(cfg.model, cfg.data)
+    assert model.causal and model.full_mask.shape[0] == model.full_mask.shape[1]
+
+    batch = _random_latent_batch(cfg)
+    loss, _ = flow_loss(model, batch, Mode.JOINT, cfg.flow)
+    assert torch.isfinite(loss)
+    loss.backward()
+
+
+def test_kv_cache_forward_equivalence():
+    """encode_prefix + forward_suffix must equal the single-pass causal forward."""
+    import torch
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+
+    cfg = _causal_cfg()
+    torch.manual_seed(0)
+    model = NanoWAM(cfg.model, cfg.data).eval()
+    batch = _random_latent_batch(cfg, B=2)
+    tau = torch.rand(2)
+    mode_id = torch.full((2,), int(Mode.JOINT), dtype=torch.long)
+
+    with torch.no_grad():
+        v_full = model(batch["ctx"], batch["video"], batch["action"], tau, mode_id)
+        prefix = model.encode_prefix(batch["ctx"], mode_id)
+        v_cached = model.forward_suffix(batch["video"], batch["action"], tau, mode_id, prefix)
+
+    for a, b in zip(v_full, v_cached):
+        assert torch.allclose(a, b, atol=1e-5), (a - b).abs().max().item()
+
+
+def test_causal_mask_blocks_future():
+    """Perturbing a later-step token must not change an earlier step's output."""
+    import torch
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+
+    cfg = _causal_cfg()
+    torch.manual_seed(0)
+    model = NanoWAM(cfg.model, cfg.data).eval()
+    b = _random_latent_batch(cfg, B=1)
+    tau = torch.rand(1)
+    mode_id = torch.zeros(1, dtype=torch.long)
+
+    with torch.no_grad():
+        v0, _ = model(b["ctx"], b["video"], b["action"], tau, mode_id)
+        vid2 = b["video"].clone()
+        vid2[:, -model.P:] += 5.0  # perturb the LAST frame's tokens
+        v1, _ = model(b["ctx"], vid2, b["action"], tau, mode_id)
+    # the first frame (step 0) must be unaffected by the last frame (step Hv-1)
+    assert torch.allclose(v0[:, :model.P], v1[:, :model.P], atol=1e-5)
+
+
+def test_dream_rollout_longhorizon():
+    import torch
+    from nanowam.model import NanoWAM
+    from nanowam.rollout import dream_rollout
+    from nanowam.tokenizer import FrameTokenizer
+
+    cfg = _causal_cfg()
+    cfg.flow.sample_steps = 3
+    tok = FrameTokenizer(cfg.model, cfg.data)
+    model = NanoWAM(cfg.model, cfg.data)
+
+    init = torch.rand(cfg.data.ctx_frames, 3, cfg.data.image_size, cfg.data.image_size)
+    n_blocks = 4
+    frames = dream_rollout(model, tok, init, n_blocks, cfg, device="cpu")
+    assert frames.shape == (n_blocks * cfg.data.video_horizon, 3,
+                            cfg.data.image_size, cfg.data.image_size)
+    assert (frames >= 0).all() and (frames <= 1).all()
+
+
 def test_policy_overfit_decreases():
     """A tiny WAM should overfit action flow on a small fixed batch."""
     import numpy as np
