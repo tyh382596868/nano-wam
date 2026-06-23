@@ -1,5 +1,7 @@
 # nano-wam
 
+[![CI](https://github.com/tyh382596868/nano-wam/actions/workflows/ci.yml/badge.svg)](https://github.com/tyh382596868/nano-wam/actions/workflows/ci.yml)
+
 A minimal, from-scratch, single-GPU **World Action Model (WAM)** — the
 `nanoGPT` of world-action models.
 
