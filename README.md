@@ -8,10 +8,11 @@ A WAM jointly predicts the **future of the world** (next frames) and the
 research systems — DreamZero, FastWAM, LingBot-VA, and Motus — into a tiny,
 readable PyTorch codebase you can train on a toy task on one GPU (or CPU).
 
-> **Status: M1.** The architecture is specified in [`DESIGN.md`](DESIGN.md). The
-> tokenizer (conv AE) and the MoT Diffusion Transformer are implemented and pass
-> their shape contracts; flow loss / training / eval (`flow.py`, `data.py`, the
-> scripts) are still documented stubs. See the roadmap in `DESIGN.md §9`.
+> **Status: M2.** Tokenizer, MoT DiT, rectified-flow loss/sampler, all four
+> modes, the procedural data pipeline, and the training loop are implemented and
+> tested (incl. a policy-mode overfit). Still to come: scaled multi-mode training
+> and the eval/imagination-ablation harness (`scripts/sample.py`). See the
+> roadmap in `DESIGN.md §9`.
 
 ## The idea in one diagram
 
@@ -42,13 +43,13 @@ multi-GPU infra, real robot stacks. See `DESIGN.md §1`.
 ```bash
 pip install -r requirements.txt
 
-# 1. build toy windows from pushT episodes
-python scripts/prepare_data.py --config configs/pusht_tiny.yaml
+# 1. build toy windows from the self-contained procedural "reacher" task
+python scripts/prepare_data.py --config configs/pusht_tiny.yaml --episodes 200
 
-# 2. train the tiny WAM
+# 2. train the tiny WAM  (tokenizer recon + flow on detached latents)
 python scripts/train.py --config configs/pusht_tiny.yaml
 
-# 3. evaluate; toggle test-time imagination on/off
+# 3. evaluate; toggle test-time imagination on/off   (M3/M4 — wip)
 python scripts/sample.py --config configs/pusht_tiny.yaml --imagine none
 python scripts/sample.py --config configs/pusht_tiny.yaml --imagine joint
 ```

@@ -52,4 +52,9 @@ MODE_TABLE: Dict[Mode, StreamMask] = {
 
 def sample_mode(mode_probs: Dict[str, float], generator=None) -> Mode:
     """Draw a Mode according to a {name: prob} dict (probs should sum to 1)."""
-    raise NotImplementedError("sample_mode is a stub (M2).")
+    import torch
+
+    names = list(mode_probs.keys())
+    weights = torch.tensor([mode_probs[n] for n in names], dtype=torch.float32)
+    idx = int(torch.multinomial(weights, 1, generator=generator).item())
+    return Mode[names[idx].upper()]

@@ -21,10 +21,30 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def save_checkpoint(path: str, model, optimizer, step: int, extra: Dict[str, Any] | None = None) -> None:
-    raise NotImplementedError("save_checkpoint is a stub (M2).")
+def save_checkpoint(path: str, model, tokenizer, optimizer, step: int,
+                    extra: Dict[str, Any] | None = None) -> None:
+    import os
+
+    import torch
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    torch.save({
+        "model": model.state_dict(),
+        "tokenizer": tokenizer.state_dict(),
+        "optimizer": optimizer.state_dict() if optimizer is not None else None,
+        "step": step,
+        "extra": extra or {},
+    }, path)
 
 
-def load_checkpoint(path: str, model, optimizer=None):
-    """Returns the saved step (and restores model/optimizer in place)."""
-    raise NotImplementedError("load_checkpoint is a stub (M2).")
+def load_checkpoint(path: str, model, tokenizer=None, optimizer=None) -> int:
+    """Restore model (+tokenizer/optimizer) in place; return the saved step."""
+    import torch
+
+    ckpt = torch.load(path, map_location="cpu", weights_only=False)
+    model.load_state_dict(ckpt["model"])
+    if tokenizer is not None and ckpt.get("tokenizer") is not None:
+        tokenizer.load_state_dict(ckpt["tokenizer"])
+    if optimizer is not None and ckpt.get("optimizer") is not None:
+        optimizer.load_state_dict(ckpt["optimizer"])
+    return ckpt.get("step", 0)

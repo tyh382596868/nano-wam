@@ -179,13 +179,16 @@ modes are supported by the single checkpoint.
 
 ## 7. Toy dataset
 
-Default target: **pushT** (2D, `Da=2`) — tiny, renders to frames, has expert
-demos, trains on one GPU/CPU. `nanowam/data.py` yields
-`(ctx_frames, future_frames, actions, goal)` windows. A `prepare_data.py` stub
-converts an episode source (pushT, or a small LeRobot/LIBERO slice) into sharded
-`.npz`/`.pt` windows.
+**Runnable default: a self-contained procedural "reacher"** (`nanowam/data.py`) —
+a white agent square moves toward a gray goal; renders to 64×64 frames with a 2D
+per-step displacement action (`Da=2`). It needs **no external sim**, so training
+and CI run anywhere. `scripts/prepare_data.py` generates episodes, slides
+`(ctx, future, action)` windows, and writes `.npz` shards; `WindowDataset` reads
+them.
 
-Stretch: a thin LeRobot adapter so a LIBERO subset drops in unchanged.
+**Real targets (adapters, M5):** pushT and a LeRobot/LIBERO slice plug in behind
+the same shard/window interface — same `(ctx_frames, future_frames, actions)`
+contract, just a different generator.
 
 ---
 
@@ -222,9 +225,12 @@ nano-wam/
 1. **M0** ✅ — design + scaffold + shape contracts.
 2. **M1** ✅ — tokenizer (conv AE) + MoT DiT forward; shape tests green, backward
    verified through tokenizer→model, zero-init heads give 0 velocity at init.
-3. **M2** (next) — flow loss + single-mode (`policy`) overfit on a tiny pushT slice.
-4. **M3** — multi-mode training; `world` + `joint` sampling renders plausible
-   futures.
+3. **M2** ✅ — rectified-flow loss + Euler sampler, all 4 modes, `sample_mode`,
+   procedural reacher data pipeline, and the train loop (tokenizer recon + flow
+   on detached latents). Tests: flow loss differentiable in every mode, sampler
+   shapes, and a `policy`-mode overfit that drives loss down on a fixed batch.
+4. **M3** (next) — multi-mode training at scale; `world` + `joint` sampling
+   renders plausible futures (decode latents → frames, dump rollout gifs).
 5. **M4** — eval harness + the imagination on/off ablation (the FastWAM result,
    reproduced at nano scale).
 6. **M5 (stretch)** — LeRobot/LIBERO adapter; KV-cache autoregressive rollout

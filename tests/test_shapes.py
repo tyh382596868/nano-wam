@@ -89,6 +89,96 @@ def test_forward_runs_with_routed_attention_and_goal():
     assert v_vid.shape == vid.shape and v_act.shape == act.shape
 
 
-@pytest.mark.xfail(reason="flow_loss is a stub until M2", strict=True)
-def test_flow_loss_is_scalar():
-    raise NotImplementedError
+def _tiny_cfg():
+    cfg = load_config("configs/pusht_tiny.yaml")
+    cfg.model.dim = 64
+    cfg.model.depth = 2
+    cfg.model.heads = 4
+    return cfg
+
+
+def _random_latent_batch(cfg, B=4):
+    import torch
+    P = (cfg.data.image_size // cfg.model.patch_size) ** 2
+    C = cfg.model.latent_channels
+    return {
+        "ctx": torch.randn(B, cfg.data.ctx_frames * P, C),
+        "video": torch.randn(B, cfg.data.video_horizon * P, C),
+        "action": torch.randn(B, cfg.data.action_horizon, cfg.data.action_dim),
+    }
+
+
+@pytest.mark.parametrize("mode_name", ["joint", "policy", "world", "inverse"])
+def test_flow_loss_is_scalar(mode_name):
+    import torch
+    from nanowam.flow import flow_loss
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+
+    cfg = _tiny_cfg()
+    model = NanoWAM(cfg.model, cfg.data)
+    batch = _random_latent_batch(cfg)
+    loss, metrics = flow_loss(model, batch, Mode[mode_name.upper()], cfg.flow)
+    assert loss.ndim == 0 and torch.isfinite(loss)
+    loss.backward()  # must be differentiable
+    assert "loss" in metrics
+
+
+def test_sample_shapes():
+    import torch
+    from nanowam.flow import sample
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+
+    cfg = _tiny_cfg()
+    model = NanoWAM(cfg.model, cfg.data)
+    B, P, C = 2, model.P, cfg.model.latent_channels
+    cond = {"ctx": torch.randn(B, model.n_ctx, C)}
+
+    out = sample(model, cond, Mode.POLICY, cfg.flow, steps=3)
+    assert out["action"].shape == (B, cfg.data.action_horizon, cfg.data.action_dim)
+    assert "video" not in out  # policy does not imagine
+
+    out = sample(model, cond, Mode.JOINT, cfg.flow, steps=3)
+    assert out["video"].shape == (B, model.n_video, C)
+    assert out["action"].shape == (B, cfg.data.action_horizon, cfg.data.action_dim)
+
+
+def test_policy_overfit_decreases():
+    """A tiny WAM should overfit action flow on a small fixed batch."""
+    import numpy as np
+    import torch
+    from nanowam.data import generate_episode, make_windows
+    from nanowam.flow import flow_loss
+    from nanowam.model import NanoWAM
+    from nanowam.modes import Mode
+    from nanowam.tokenizer import FrameTokenizer, to_tokens
+    from nanowam.utils import set_seed
+
+    set_seed(0)
+    cfg = _tiny_cfg()
+    tok = FrameTokenizer(cfg.model, cfg.data)  # fixed random tokenizer (ctx detached)
+    model = NanoWAM(cfg.model, cfg.data)
+
+    rng = np.random.default_rng(0)
+    windows = []
+    while len(windows) < 16:
+        f, a = generate_episode(rng, 24, cfg.data.image_size)
+        windows += make_windows(f, a, cfg.data.ctx_frames, cfg.data.video_horizon, cfg.data.action_horizon)
+    windows = windows[:16]
+    ctx = torch.from_numpy(np.stack([w[0] for w in windows])).float() / 255.0
+    act = torch.from_numpy(np.stack([w[2] for w in windows])).float()
+    with torch.no_grad():
+        ctx_tok = to_tokens(tok.encode(ctx))
+    batch = {"ctx": ctx_tok, "video": torch.zeros(16, model.n_video, cfg.model.latent_channels),
+             "action": act}
+
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    gen = torch.Generator().manual_seed(0)
+    losses = []
+    for _ in range(120):
+        opt.zero_grad()
+        loss, _ = flow_loss(model, batch, Mode.POLICY, cfg.flow, generator=gen)
+        loss.backward(); opt.step()
+        losses.append(loss.item())
+    assert losses[-1] < 0.6 * losses[0], f"no overfit: {losses[0]:.3f} -> {losses[-1]:.3f}"
