@@ -1,0 +1,49 @@
+# nano-wam — LeRobot pushT template (M5 real-data adapter).
+# Requires: pip install lerobot
+# Build:    python scripts/prepare_data.py --config configs/lerobot_pusht.yaml \
+#             --source lerobot --repo-id lerobot/pusht --normalize
+# pushT has 2-D actions and ~96x96 images (resized to image_size below).
+
+seed: 1337
+
+data:
+  name: lerobot_pusht
+  root: data/pusht_lerobot
+  image_size: 64
+  ctx_frames: 2
+  video_horizon: 4
+  action_horizon: 8
+  action_dim: 2        # pushT action is (x, y); must match the dataset
+
+model:
+  dim: 256
+  depth: 8
+  heads: 8
+  latent_channels: 4
+  patch_size: 8
+  route_attention: false
+  goal_embed: onehot
+
+flow:
+  loss_video_weight: 1.0
+  loss_action_weight: 1.0
+  per_stream_time: false
+  sample_steps: 10
+
+train:
+  mode_probs: { joint: 0.5, policy: 0.25, world: 0.15, inverse: 0.10 }
+  batch_size: 64
+  lr: 3.0e-4
+  weight_decay: 0.01
+  max_steps: 40000
+  warmup_steps: 500
+  grad_clip: 1.0
+  amp: true
+  log_every: 50
+  ckpt_every: 2000
+  out_dir: runs/pusht_lerobot
+
+eval:
+  episodes: 20
+  imagine: none
+  replan_every: 4

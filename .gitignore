@@ -11,3 +11,6 @@ runs/
 *.gif
 *.mp4
 .DS_Store
+# regenerable book demo outputs (figures are described in the prose; rerun to regenerate)
+book/**/*.png
+.dlc_deps/

@@ -1,0 +1,48 @@
+# nano-wam — GPU run config (scaled up from the tiny CPU defaults).
+# Self-contained procedural reacher source, so it runs with no external data.
+# Drive it with: ./scripts/run_gpu.sh  (or pass this file to the scripts directly)
+
+seed: 1337
+
+data:
+  name: reacher
+  root: data/reacher_gpu
+  image_size: 64
+  ctx_frames: 2
+  video_horizon: 4
+  action_horizon: 8
+  action_dim: 2
+
+model:
+  dim: 512
+  depth: 12
+  heads: 8
+  latent_channels: 4
+  patch_size: 8
+  route_attention: false
+  causal: false          # set true (and action_horizon: 4) for --dream rollouts
+  goal_embed: onehot
+
+flow:
+  loss_video_weight: 1.0
+  loss_action_weight: 1.0
+  per_stream_time: false
+  sample_steps: 16
+
+train:
+  mode_probs: { joint: 0.5, policy: 0.2, world: 0.2, inverse: 0.1 }
+  batch_size: 128
+  lr: 3.0e-4
+  weight_decay: 0.01
+  max_steps: 30000
+  warmup_steps: 1000
+  grad_clip: 1.0
+  amp: true
+  log_every: 100
+  ckpt_every: 5000
+  out_dir: runs/reacher_gpu
+
+eval:
+  episodes: 50
+  imagine: none
+  replan_every: 4
