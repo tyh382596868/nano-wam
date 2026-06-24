@@ -80,7 +80,7 @@ class Attention(nn.Module):
             for s in range(N_STREAMS):
                 m = stream_ids == s
                 if m.any():
-                    qkv[:, m] = self.qkv[s](x[:, m])
+                    qkv[:, m] = self.qkv[s](x[:, m]).to(qkv.dtype)
         else:
             qkv = self.qkv(x)
         q, k, v = qkv.chunk(3, dim=-1)
@@ -125,7 +125,7 @@ class MoTBlock(nn.Module):
                 continue
             chunks = self.adaln[s](cond_ps[:, s]).chunk(6, dim=-1)
             for i, c in enumerate(chunks):
-                parts[i][:, m] = c.unsqueeze(1)
+                parts[i][:, m] = c.unsqueeze(1).to(parts[i].dtype)
         return parts
 
     def forward(self, x, stream_ids, cond_ps, attn_mask=None, prefix_kv=None, return_kv=False):
@@ -142,7 +142,7 @@ class MoTBlock(nn.Module):
         for s in range(N_STREAMS):
             m = stream_ids == s
             if m.any():
-                ffn_out[:, m] = self.ffn[s](h[:, m])
+                ffn_out[:, m] = self.ffn[s](h[:, m]).to(ffn_out.dtype)
         x = x + g2 * ffn_out
         return (x, kv) if return_kv else x
 
