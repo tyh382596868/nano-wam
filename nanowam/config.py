@@ -54,6 +54,11 @@ class TrainConfig:
     amp: bool = True
     log_every: int = 50
     ckpt_every: int = 2000
+    # checkpoint retention + in-training closed-loop eval (M7)
+    max_ckpts: int = 0           # 0 = keep all; >0 = keep best-scoring N (plus latest)
+    eval_every: int = 0          # 0 = no in-training eval; else run sim eval every N steps
+    eval_episodes: int = 10      # episodes per in-training eval
+    eval_max_steps: int = 200    # max env steps per eval episode
     out_dir: str = "runs/pusht_tiny"
 
 

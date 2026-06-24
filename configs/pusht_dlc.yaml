@@ -1,0 +1,53 @@
+# nano-wam — pushT scaled DLC run (M7).
+# Bigger model (dim512/depth12, like reacher_gpu) + long training, with capped
+# best-K checkpointing ranked by periodic closed-loop gym-pusht eval.
+# Submit via scripts/run_dlc_pusht.sh on the DLC cluster.
+
+seed: 1337
+
+data:
+  name: lerobot_pusht        # routes in-training eval to the gym-pusht simulator
+  root: data/pusht_lerobot   # shards built by scripts/prepare_pusht_v3.py
+  image_size: 64
+  ctx_frames: 2
+  video_horizon: 4
+  action_horizon: 8
+  action_dim: 2
+
+model:
+  dim: 512
+  depth: 12
+  heads: 8
+  latent_channels: 4
+  patch_size: 8
+  route_attention: false
+  causal: false
+  goal_embed: onehot
+
+flow:
+  loss_video_weight: 1.0
+  loss_action_weight: 1.0
+  per_stream_time: false
+  sample_steps: 16
+
+train:
+  mode_probs: { joint: 0.5, policy: 0.25, world: 0.15, inverse: 0.10 }
+  batch_size: 128
+  lr: 3.0e-4
+  weight_decay: 0.01
+  max_steps: 150000
+  warmup_steps: 1000
+  grad_clip: 1.0
+  amp: true
+  log_every: 100
+  ckpt_every: 5000
+  max_ckpts: 5            # keep the 5 best-scoring checkpoints (plus latest for resume)
+  eval_every: 5000        # run closed-loop gym-pusht eval at each checkpoint
+  eval_episodes: 12       # episodes per in-training eval
+  eval_max_steps: 200     # env steps per eval episode
+  out_dir: runs/pusht_dlc
+
+eval:
+  episodes: 50
+  imagine: joint
+  replan_every: 4

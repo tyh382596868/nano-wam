@@ -6,8 +6,15 @@ flow objective can't collapse the encoder. A UniDiffuser-style per-batch mode
 sample lets one checkpoint serve policy / world / joint / inverse. See DESIGN.md
 §5.
 
+Checkpointing (M7): with train.max_ckpts > 0 the interval checkpoints are capped
+at that many, keeping the ones that score best in the closed-loop sim (plus the
+latest, for preemption-safe resume). With train.eval_every > 0 the sim eval runs
+every that-many steps and its score ranks the checkpoints; see
+nanowam/ckpt_manager.py. ckpt_best.pt always points at the best so far.
+
 Usage:
     python scripts/train.py --config configs/pusht_tiny.yaml
+    python scripts/train.py --config configs/pusht_dlc.yaml --resume runs/pusht_dlc/ckpt_020000.pt
 """
 from __future__ import annotations
 
@@ -21,6 +28,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # run from repo root, no install
 from nanowam.config import load_config
+from nanowam.ckpt_manager import CheckpointManager, score_checkpoint
 from nanowam.data import WindowDataset
 from nanowam.flow import flow_loss
 from nanowam.model import NanoWAM
@@ -72,10 +80,35 @@ def main() -> None:
     start = 0
     if args.resume:
         start = load_checkpoint(args.resume, model, tokenizer, opt)
+        for _ in range(start):
+            sched.step()
         print(f"[train] resumed from step {start}")
+
+    ckpt_mgr = CheckpointManager(cfg.train.out_dir, cfg.train.max_ckpts)
+    ckpt_mgr.restore()
 
     use_amp = cfg.train.amp and device.type == "cuda"
     scaler = torch.amp.GradScaler(enabled=use_amp)
+
+    def maybe_eval_and_track(step: int) -> None:
+        path = f"{cfg.train.out_dir}/ckpt_{step:06d}.pt"
+        save_checkpoint(path, model, tokenizer, opt, step)
+        score, extra = float("-inf"), None
+        if cfg.train.eval_every and step % cfg.train.eval_every == 0:
+            try:
+                score, r = score_checkpoint(model, tokenizer, cfg, device,
+                                            cfg.train.eval_episodes, cfg.train.eval_max_steps)
+                extra = r
+                print(f"[eval] step {step:6d} score {score:.4f} "
+                      f"success {r['success_rate']*100:.1f}% "
+                      f"cov {r.get('mean_coverage', float('nan')):.3f} "
+                      f"steps {r.get('mean_steps', float('nan')):.1f}")
+            except Exception as e:  # eval must never kill a long training run
+                print(f"[eval] step {step:6d} SKIPPED ({type(e).__name__}: {e})")
+            finally:
+                model.train(); tokenizer.train()
+        ckpt_mgr.add(step, path, score, extra)
+        print(f"[train] saved {path} (kept {len(ckpt_mgr.entries)}, best {ckpt_mgr.best_score:.4f})")
 
     model.train(); tokenizer.train()
     step = start
@@ -113,9 +146,7 @@ def main() -> None:
                   f"flow {metrics['loss'].item():.4f} recon {recon_loss.item():.4f} "
                   f"mode {mode.name.lower()}")
         if step > start and step % cfg.train.ckpt_every == 0:
-            path = f"{cfg.train.out_dir}/ckpt_{step:06d}.pt"
-            save_checkpoint(path, model, tokenizer, opt, step)
-            print(f"[train] saved {path}")
+            maybe_eval_and_track(step)
         step += 1
 
     save_checkpoint(f"{cfg.train.out_dir}/ckpt_final.pt", model, tokenizer, opt, step)
